@@ -28,33 +28,18 @@ class User(db.Model, UserMixin):
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-key = Fernet.generate_key()
+key = '3p2sa-kHxKtOBeUAIeTDJ97MZ8wqBL2lSRprrfApHpc='.encode('utf-8')
+fernet = Fernet(key)
 
 
-@app.before_request
-def decrypt_db():
-    fernet = Fernet(key)
-    with open('database.db', 'rb') as enc_file:
-        encrypted = enc_file.read()
-
-    decrypted = fernet.decrypt(encrypted)
-
-    with open('database.db', 'wb') as dec_file:
-        dec_file.write(decrypted)
+def encrypt_data(data):
+    encrypted_data = fernet.encrypt(data.encode('utf-8'))
+    return encrypted_data
 
 
-@app.after_request
-def encrypt_db(response):
-    fernet = Fernet(key)
-    with open('database.db', 'rb') as dec_file:
-        decrypted = dec_file.read()
-
-    encrypted = fernet.encrypt(decrypted)
-
-    with open('database.db', 'wb') as enc_file:
-        enc_file.write(encrypted)
-
-    return response
+def decrypt_data(encrypted_data):
+    decrypted_data = fernet.decrypt(encrypted_data)
+    return decrypted_data.decode('utf-8')
 
 
 @login_manager.user_loader
@@ -74,13 +59,13 @@ def user_register():
             min_password_length = min_pass_length
             password_expiration_months = request.form['password_expiration_months']
 
-            user = User(username=username, password=password, role=role,
+            user = User(username=username, password=encrypt_data(password), role=role,
                         min_password_length=min_password_length, password_expiration_months=password_expiration_months)
 
             db.session.add(user)
             db.session.commit()
             flash('Пользователь зарегистрирован успешно', 'success')
-            return redirect(url_for('login'))
+            return redirect(url_for('dashboard'))
 
         return render_template('user_register.html', min_password_length=min_pass_length)
     else:
@@ -91,16 +76,25 @@ def user_register():
 @app.route('/')
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if not User.query.first():
+        # Если в таблице нет записей, добавляем новую запись
+        new_user = User(username='admin', password=encrypt_data('Qwerty'), role='admin',
+                        min_password_length=4, password_expiration_months=1)
+        db.session.add(new_user)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        session['username'] = username
 
         user = User.query.filter_by(username=username).first()
+        session['username'] = user.username
         session['role'] = user.role
         session['user_id'] = user.id
 
-        if user and user.password == password:
+        if user and decrypt_data(user.password) == password:
             login_user(user)
             flash('Вход успешно выполнен!', 'success')
             return redirect(url_for('dashboard'))  # Замените 'dashboard' на ваш маршрут для пользователей
@@ -147,10 +141,10 @@ def change_password(user_id=''):
     old_password = request.form['old_password']
     new_password = request.form['new_password']
     confirm_password = request.form['confirm_password']
-    if old_password == user.password:
+    if old_password == decrypt_data(user.password):
         if new_password == confirm_password:
             if len(new_password) > user.min_password_length:
-                user.password = new_password
+                user.password = encrypt_data(new_password)
                 user.verified = True
                 db.session.commit()
                 flash('Пароль изменен успешно', 'success')
@@ -166,14 +160,5 @@ def change_password(user_id=''):
 
 with app.app_context():
     db.create_all()
-    if not User.query.first():
-        # Если в таблице нет записей, добавляем новую запись
-        new_user = User(username='admin', password='Qwerty', role='admin',
-                        min_password_length=4, password_expiration_months=1)
-        db.session.add(new_user)
-        try:
-            db.session.commit()
-        except IntegrityError:
-            db.session.rollback()
 if __name__ == '__main__':
     app.run(debug=True)

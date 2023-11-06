@@ -31,7 +31,7 @@
                             <td>{{ user.username }}</td>
                             <td>{{ user.min_password_length }}</td>
                             <td>{{ user.password_expiration_months }}</td>
-                            <td><a>href="/change_user/{{user.id}}</a></td>
+                            <td><a href="/change_password/{{user.id}}">Изменить пароль</a></td>
                         </tr>
                     {% endfor %}
                 </tbody>
