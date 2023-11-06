@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <form method="POST" action="/change_password">
+        <label for="old_password">Старый пароль:</label>
+        <input type="password" id="old_password" name="old_password" required><br><br>
+
+        <label for="new_password">Новый пароль:</label>
+        <input type="password" id="new_password" name="new_password" required><br><br>
+
+        <label for="confirm_password">Подтверждение нового пароля:</label>
+        <input type="password" id="confirm_password" name="confirm_password" required><br><br>
+
+        <button type="submit">Сменить пароль</button>
+    </form>
+
+    {% if username == "admin" %}
+        <h1>Список обычных пользователей</h1>
+            <table class="table table-dark">
+                <thead>
+                    <tr>
+                        <th scope="col">Имя пользователя</th>
+                        <th scope="col">Мин. длина пароля</th>
+                        <th scope="col">Срок действия пароля (месяцы)</th>
+                        <th scope="col">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                        <tr>
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.min_password_length }}</td>
+                            <td>{{ user.password_expiration_months }}</td>
+                            <td><a>href="/change_user/{{user.id}}</a></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+    {% endif %}
+{% endblock %}
