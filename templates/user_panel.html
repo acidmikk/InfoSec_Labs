@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <form method="POST" action="/change_password">
+    <form method="POST" action="/change_password/{{ user_id }}">
         <label for="old_password">Старый пароль:</label>
         <input type="password" id="old_password" name="old_password" required><br><br>
 
@@ -31,7 +31,7 @@
                             <td>{{ user.username }}</td>
                             <td>{{ user.min_password_length }}</td>
                             <td>{{ user.password_expiration_months }}</td>
-                            <td><a href="/change_password/{{user.id}}">Изменить пароль</a></td>
+                            <td><a href="/change_user/{{user.id}}">Изменить пароль</a></td>
                         </tr>
                     {% endfor %}
                 </tbody>
