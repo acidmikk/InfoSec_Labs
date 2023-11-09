@@ -1,68 +1,90 @@
 import os
+import re
+
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_login import LoginManager, login_user, UserMixin, login_required, logout_user, current_user
 from random import randint
-from cryptography.fernet import Fernet
+from Crypto.Cipher import DES
+from Crypto.Random import get_random_bytes
 import json
-from hashlib import sha256
+from hashlib import md5
 import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret_key'
-USERS_FILE = 'users.encrypt'
-data = ''
+USERS_FILE = 'users.json'
+data = {}
+# Настройка Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
 
 
-class User:
-    def __init__(self, username, password, role, min_password_length, password_expiration_months):
+class User(UserMixin):
+    def __init__(self, user_id, username, password, role, min_password_length, password_expiration_months):
+        self.id = user_id
         self.username = username
-        self.password_hash = self._hash_password(password)
+        self.password_hash = password
         self.role = role
         self.min_password_length = min_password_length
         self.password_expiration_months = password_expiration_months
         self.created_at = datetime.datetime.now()
 
-    @classmethod
-    def _hash_password(cls, password):
-        return sha256(password.encode('utf-8')).hexdigest()
+    @staticmethod
+    def _hash_password(password):
+        return md5(password.encode('utf-8')).hexdigest()
 
-    def save(self):
-        users = self._get_all_users()
-        users.append({
-            'username': self.username,
-            'password_hash': self.password_hash,
-            'role': self.role,
-            'min_password_length': self.min_password_length,
-            'password_expiration_months': self.password_expiration_months,
-            'created_at': self.created_at.isoformat()
-        })
-        self._write_users(users)
+    def save(self, user_id=None):
+        if user_id is None:
+            user_id = str(len(data) + 1)
+        if data.get(user_id):
+            data[user_id] = {
+                'id': self.id,
+                'username': self.username,
+                'password_hash': self.password_hash,
+                'role': self.role,
+                'min_password_length': self.min_password_length,
+                'password_expiration_months': self.password_expiration_months,
+                'created_at': self.created_at.isoformat()
+            }
+        else:
+            data[user_id] = {
+                'id': self.id,
+                'username': self.username,
+                'password_hash': self._hash_password(self.password_hash),
+                'role': self.role,
+                'min_password_length': self.min_password_length,
+                'password_expiration_months': self.password_expiration_months,
+                'created_at': datetime.datetime.now().isoformat()
+            }
+
+    def change_password(self, password):
+        self.password_hash = self._hash_password(password)
+        self.save(str(self.id))
 
     @classmethod
     def find_by_username(cls, username):
-        users = cls._get_all_users()
-        for user in users:
-            if user['username'] == username:
+        for user_id in data:
+            if data[user_id]['username'] == username:
                 return cls(
-                    username=user['username'],
-                    password='',
-                    role=user['role'],
-                    min_password_length=user['min_password_length'],
-                    password_expiration_months=user['password_expiration_months']
+                    user_id=data[user_id]['id'],
+                    username=data[user_id]['username'],
+                    password=data[user_id]['password_hash'],
+                    role=data[user_id]['role'],
+                    min_password_length=data[user_id]['min_password_length'],
+                    password_expiration_months=data[user_id]['password_expiration_months']
                 )
 
     @classmethod
-    def find_by_id(cls, id):
-        users = cls._get_all_users()
-        for user in users:
-            if user['id'] == id:
-                return cls(
-                    username=user['username'],
-                    password='',
-                    role=user['role'],
-                    min_password_length=user['min_password_length'],
-                    password_expiration_months=user['password_expiration_months']
-                )
+    def find_by_id(cls, user_id=str):
+        user = data[user_id]
+        return cls(
+            user_id=user['id'],
+            username=user['username'],
+            password=user['password_hash'],
+            role=user['role'],
+            min_password_length=user['min_password_length'],
+            password_expiration_months=user['password_expiration_months']
+        )
 
     def verify_password(self, password):
         return self._hash_password(password) == self.password_hash
@@ -73,62 +95,66 @@ class User:
             return datetime.datetime.now() > expiration_date
         return False
 
-    def is_password_length_valid(self, password):
-        return len(password) >= self.min_password_length
+    def password_length_valid(self):
+        print(self.password_hash)
+        return len(self.password_hash) >= int(self.min_password_length)
 
-    @classmethod
-    def _get_all_users(cls):
-        try:
-            with open(USERS_FILE, 'r') as file:
-                return json.load(file)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return []
-
-    @classmethod
-    def _write_users(cls, users):
-        with open(USERS_FILE, 'w') as file:
-            json.dump(users, file, indent=2)
-
-    @classmethod
-    def load_users_from_json(cls):
-        with open(USERS_FILE, 'r') as file:
-            users_data = json.load(file)
-        return [User(**user_data) for user_data in users_data]
+    @staticmethod
+    def _get_all_users():
+        return data.values()
 
 
-key = '3p2sa-kHxKtOBeUAIeTDJ97MZ8wqBL2lSRprrfApHpc='.encode('utf-8')
-fernet = Fernet(key)
+key = b'\x01{i\x9e\xc7d\xec\x19'
+cipher = DES.new(key, DES.MODE_ECB)
 
 
-@app.before_first_request
-def before_first_request():
-    if not os.path.exists(USERS_FILE):
-        initial_data = {
-            'username': 'admin',
-            'password_hash': sha256("qwerty".encode('utf-8')).hexdigest(),
-            'role': 'admin',
-            'min_password_length': 4,
-            'password_expiration_months': 1,
-            'created_at': datetime.datetime.now()
-        }
-        with open(USERS_FILE, 'wb') as json_file:
-            json.dump(fernet.encrypt(str(initial_data).encode('utf-8')), json_file)
-    with open(USERS_FILE, 'rb') as file:
-        encrypted_data = json.load(file)
-        return fernet.decrypt(encrypted_data).decode('utf-8')
+# @app.before_first_request
+# def init_app():
+#     if not os.path.exists(USERS_FILE):
+#         initial_data = {1: {
+#             'id': 1,
+#             'username': 'admin',
+#             'password_hash': sha256("qwerty".encode('utf-8')).hexdigest(),
+#             'role': 'admin',
+#             'min_password_length': 4,
+#             'password_expiration_months': 1,
+#             'created_at': datetime.datetime.now().isoformat()
+#         }}
+#         write_in_json(initial_data)
+#     with open(USERS_FILE, 'rb') as file:
+#         encrypted_data = file.read()
+#         data = json.loads(cipher.decrypt(encrypted_data).rstrip(b'\x00').decode('utf-8'))
 
 
-@app.teardown_appcontext
-def teardown_appcontext(exception=None):
-    encrypted_data = fernet.encrypt(data.encode('utf-8'))
-    with open(USERS_FILE, 'w') as file:
-        json.dump(encrypted_data, file, indent=2)
+@app.route('/write_in_json')
+def write_in_json(init_data=None):
+    if init_data is None:
+        init_data = data
+    with open(USERS_FILE, 'wb') as json_file:
+        write_data = json.dumps(init_data).encode('utf-8')
+        block_size = 8  # Размер блока DES
+        padding = block_size - len(write_data) % block_size
+        write_data += b'\x00' * padding
+        encrypted_data = cipher.encrypt(write_data)
+        json_file.write(encrypted_data)
+    return redirect(request.referrer)
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.find_by_id(user_id)
+
+
+def check_password(password):
+    if re.search(r"[0-9]", password) and re.search(r"[.,;:!?]", password) and re.search(r"[+\-*/]", password):
+        return True
+    return False
 
 
 @app.route('/user/register', methods=['GET', 'POST'])
 @login_required
 def user_register():
-    if current_user.role == 'admin':
+    if session['role'] == 'admin':
         min_pass_length = randint(4, 10)
         if request.method == 'POST':
             username = request.form['username']
@@ -136,10 +162,15 @@ def user_register():
             role = 'user'  # Устанавливаем роль "user" для обычного пользователя
             min_password_length = request.form['min_password_length']
             password_expiration_months = request.form['password_expiration_months']
-
-            user = User(username=username, password=password, role=role,
+            user_id = str(int(list(data.keys())[-1]) + 1)
+            user = User(user_id=user_id, username=username, password=password, role=role,
                         min_password_length=min_password_length, password_expiration_months=password_expiration_months)
-            user.save()
+            print(user.password_length_valid())
+            if not (check_password(password) and user.password_length_valid()):
+                flash('Пароль должен содержать хотя бы одну цифру, знак препинания и знак арифметической операций '
+                      'и быть не короче указанной длины', 'danger')
+                return redirect(request.referrer)
+            user.save(user_id=user_id)
             flash('Пользователь зарегистрирован успешно', 'success')
             return redirect(url_for('dashboard'))
 
@@ -151,28 +182,42 @@ def user_register():
 
 @app.route('/')
 def index():
+    global data
+    if not os.path.exists(USERS_FILE):
+        initial_data = {1: {
+            'id': 1,
+            'username': 'admin',
+            'password_hash': md5('qwerty'.encode('utf-8')).hexdigest(),
+            'role': 'admin',
+            'min_password_length': 0,
+            'password_expiration_months': 1,
+            'created_at': datetime.datetime.now().isoformat()
+        }}
+        write_in_json(initial_data)
+    with open(USERS_FILE, 'rb') as file:
+        encrypted_data = file.read()
+        data = json.loads(cipher.decrypt(encrypted_data).rstrip(b'\x00').decode('utf-8'))
+    return data
+
+
+@app.route('/data')
+def show_data():
     return data
 
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if not User._get_all_users():
-        # Если в таблице нет записей, добавляем новую запись
-        new_user = User(username='admin', password='Qwerty', role='admin',
-                        min_password_length=4, password_expiration_months=1)
-        new_user.save()
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-
         user = User.find_by_username(username=username)
         if user and user.verify_password(password) and not user.is_password_expired():
             session['username'] = user.username
             session['role'] = user.role
+            login_user(user)
             return redirect(url_for('dashboard'))  # Редирект на страницу после входа
         else:
             flash('Неправильное имя пользователя или пароль', 'danger')
-
     return render_template('login.html')
 
 
@@ -180,7 +225,7 @@ def login():
 @login_required
 def dashboard():
     if current_user.role == 'admin':
-        users = User.query.filter_by(role='user').all()
+        users = data.values()
         return render_template('user_panel.html', users=users, username=session['username'], user_id=session['user_id'])
     else:
         return render_template('user_panel.html', username=session['username'], user_id=session['user_id'])
@@ -190,11 +235,12 @@ def dashboard():
 @login_required
 def logout():
     session.pop('username', None)
+    logout_user()
     flash('Выход выполнен успешно', 'success')
     return redirect(url_for('login'))
 
 
-@app.route('/change_user/<int:user_id>')
+@app.route('/change_user/<string:user_id>')
 @login_required
 def change_user(user_id):
     return render_template('user_panel_custom.html', username=session['username'],  user_id=user_id,
@@ -202,18 +248,17 @@ def change_user(user_id):
 
 
 # Маршрут для смены пароля
-@app.route('/change_password/<int:user_id>', methods=['POST'])
+@app.route('/change_password/<string:user_id>', methods=['POST'])
 @login_required
 def change_password(user_id):
     user = User.find_by_id(user_id)
     old_password = request.form['old_password']
     new_password = request.form['new_password']
     confirm_password = request.form['confirm_password']
-    if user.verify_password(new_password):
+    if user.verify_password(old_password):
         if new_password == confirm_password:
-            if len(new_password) > user.min_password_length:
-                user.password = user._hash_password(new_password)
-                user.verified = True
+            if user.is_password_length_valid(new_password):
+                user.change_password(new_password)
                 flash('Пароль изменен успешно', 'success')
                 if session['role'] != 'admin':
                     logout_user()
@@ -222,10 +267,13 @@ def change_password(user_id):
                     return redirect(url_for('dashboard'))
             else:
                 flash(f'Пароль не удовлетворяет условиям длины: {user.min_password_length}', 'danger')
+                return redirect(request.referrer)
         else:
             flash('Пароли не совпадают', 'danger')
+            return redirect(request.referrer)
     else:
         flash('Неверный старый пароль', 'danger')
+        return redirect(request.referrer)
 
 
 if __name__ == '__main__':

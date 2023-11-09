@@ -31,7 +31,9 @@
                             <td>{{ user.username }}</td>
                             <td>{{ user.min_password_length }}</td>
                             <td>{{ user.password_expiration_months }}</td>
-                            <td><a href="/change_user/{{user.id}}">Изменить пароль</a></td>
+                            {% if user.role != 'admin' %}
+                                <td><a href="/change_user/{{user.id}}">Изменить пароль</a></td>
+                            {% endif %}
                         </tr>
                     {% endfor %}
                 </tbody>
