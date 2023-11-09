@@ -9,6 +9,7 @@ from Crypto.Random import get_random_bytes
 import json
 from hashlib import md5
 import datetime
+from lab_2_hash import md4
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret_key'
@@ -215,9 +216,13 @@ def about():
     return render_template('about.html')
 
 
-@app.route('/lab_2')
+@app.route('/lab_2', methods=['GET', 'POST'])
 def lab_2():
-    return render_template('lab_2.html')
+    if request.method == 'POST':
+        message = request.form['message']
+        hashed_message = md4(message)
+        return render_template('lab_2.html', title='Lab 2', message=message, hashed_message=hashed_message)
+    return render_template('lab_2.html', title='Lab 2')
 
 
 @app.route('/reset_data')

@@ -1,5 +1,14 @@
 {% extends "base.html" %}
 
 {% block content %}
-
+    <h1>MD4 Hashing</h1>
+    <form method="POST">
+        <label for="message">Enter your message:</label>
+        <input type="text" id="message" name="message" value="{{message}}" required>
+        <br><br>
+        <input type="submit" value="Hash">
+    </form>
+    <br>
+    <label for="hashed_message">Hashed Message:</label>
+    <input type="text" id="hashed_message" name="hashed_message" value="{{hashed_message}}" readonly>
 {% endblock %}
