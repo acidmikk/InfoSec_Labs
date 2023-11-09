@@ -96,7 +96,6 @@ class User(UserMixin):
         return False
 
     def password_length_valid(self):
-        print(self.password_hash)
         return len(self.password_hash) >= int(self.min_password_length)
 
     @staticmethod
@@ -165,7 +164,6 @@ def user_register():
             user_id = str(int(list(data.keys())[-1]) + 1)
             user = User(user_id=user_id, username=username, password=password, role=role,
                         min_password_length=min_password_length, password_expiration_months=password_expiration_months)
-            print(user.password_length_valid())
             if not (check_password(password) and user.password_length_valid()):
                 flash('Пароль должен содержать хотя бы одну цифру, знак препинания и знак арифметической операций '
                       'и быть не короче указанной длины', 'danger')
