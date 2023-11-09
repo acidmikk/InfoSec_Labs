@@ -103,7 +103,7 @@ class User(UserMixin):
         return data.values()
 
 
-key = b'\x01{i\x9e\xc7d\xec\x19'
+key = b''
 cipher = DES.new(key, DES.MODE_ECB)
 
 
@@ -180,6 +180,42 @@ def user_register():
 
 @app.route('/')
 def index():
+    if not os.path.exists(USERS_FILE):
+        initial_data = {1: {
+            'id': 1,
+            'username': 'admin',
+            'password_hash': md5('qwerty'.encode('utf-8')).hexdigest(),
+            'role': 'admin',
+            'min_password_length': 0,
+            'password_expiration_months': 1,
+            'created_at': datetime.datetime.now().isoformat()
+        }}
+        write_in_json(initial_data)
+    if not os.path.exists('key.txt'):
+        with open('key.txt', 'wb') as file:
+            file.write(b't\x83^\x02\xa4 J' + get_random_bytes(1))
+    with open('key.txt', 'rb') as file:
+        global key
+        key = file.read()
+    if not current_user:
+        return render_template('login.html')
+    return render_template("index.html", username=session['username'], user_id=session['user_id'],
+                           user_role=session['role'])
+
+
+@app.route('/about')
+def about():
+    return render_template('about.html')
+
+
+@app.route('/lab_2')
+def lab_2():
+    return render_template('lab_2.html')
+
+
+@app.route('/reset_data')
+@login_required
+def reset_data():
     global data
     if not os.path.exists(USERS_FILE):
         initial_data = {1: {
@@ -198,7 +234,7 @@ def index():
     return data
 
 
-@app.route('/data')
+@app.route('/show_data')
 def show_data():
     return data
 

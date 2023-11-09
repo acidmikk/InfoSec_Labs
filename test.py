@@ -113,4 +113,4 @@ def check_password(password):
     return False
 
 
-print(check_password('qwerty1-.'))
+print(get_random_bytes(1))
