@@ -13,7 +13,7 @@ import datetime
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret_key'
 USERS_FILE = 'users.json'
-data = {}
+data = None
 # Настройка Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -103,8 +103,7 @@ class User(UserMixin):
         return data.values()
 
 
-key = b''
-cipher = DES.new(key, DES.MODE_ECB)
+cipher = None
 
 
 # @app.before_first_request
@@ -180,8 +179,17 @@ def user_register():
 
 @app.route('/')
 def index():
+    global data
+    global cipher
+    if not os.path.exists('key.txt'):
+        with open('key.txt', 'wb') as file:
+            file.write(b't\x83^\x02\xa4 J' + get_random_bytes(1))
+    if not cipher:
+        with open('key.txt', 'rb') as file:
+            key = file.read()
+            cipher = DES.new(key, DES.MODE_ECB)
     if not os.path.exists(USERS_FILE):
-        initial_data = {1: {
+        initial_data = {'1': {
             'id': 1,
             'username': 'admin',
             'password_hash': md5('qwerty'.encode('utf-8')).hexdigest(),
@@ -191,16 +199,15 @@ def index():
             'created_at': datetime.datetime.now().isoformat()
         }}
         write_in_json(initial_data)
-    if not os.path.exists('key.txt'):
-        with open('key.txt', 'wb') as file:
-            file.write(b't\x83^\x02\xa4 J' + get_random_bytes(1))
-    with open('key.txt', 'rb') as file:
-        global key
-        key = file.read()
-    if not current_user:
-        return render_template('login.html')
-    return render_template("index.html", username=session['username'], user_id=session['user_id'],
-                           user_role=session['role'])
+    if not data:
+        with open(USERS_FILE, 'rb') as file:
+            encrypted_data = file.read()
+            data = json.loads(cipher.decrypt(encrypted_data).rstrip(b'\x00').decode('utf-8'))
+    if 'username' not in session:
+        return render_template("index.html", username='', user_id='', user_role='')
+    else:
+        return render_template("index.html", username=session['username'], user_id=session['user_id'],
+                               user_role=session['role'])
 
 
 @app.route('/about')
@@ -248,6 +255,7 @@ def login():
         if user and user.verify_password(password) and not user.is_password_expired():
             session['username'] = user.username
             session['role'] = user.role
+            session['user_id'] = user.id
             login_user(user)
             return redirect(url_for('dashboard'))  # Редирект на страницу после входа
         else:
@@ -260,9 +268,11 @@ def login():
 def dashboard():
     if current_user.role == 'admin':
         users = data.values()
-        return render_template('user_panel.html', users=users, username=session['username'], user_id=session['user_id'])
+        return render_template('user_panel.html', users=users, username=session['username'], user_id=session['user_id'],
+                               user_role=session['role'])
     else:
-        return render_template('user_panel.html', username=session['username'], user_id=session['user_id'])
+        return render_template('user_panel.html', username=session['username'], user_id=session['user_id'],
+                               user_role=session['role'])
 
 
 @app.route('/logout')

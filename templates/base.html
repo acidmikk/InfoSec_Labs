@@ -12,16 +12,24 @@
             <header>
                     <nav class="navbar navbar-light bg-light">
                         <div class="d-flex justify-content-start">
-                        <a class="navbar-brand" href="/">Microblog</a>
-                        <a class="nav-item nav-link" href="/dashboard">Управление</a>
-                        {% if "user_role" == 'admin' %}
-                            <a class="nav-item nav-link" href="/write_in_json">Сохранить</a>
-                        {% endif %}
+                            <a class="navbar-brand" href="/">Microblog</a>
+                            {% if "username" in session %}
+                                <a class="nav-item nav-link" href="/dashboard">Управление</a>
+                            {% endif %}
+                            {% if user_role == 'admin' %}
+                                <a class="nav-item nav-link" href="/write_in_json">Сохранить</a>
+                                <a class="nav-item nav-link" href="/reset_data">Сброс данных</a>
+                                <a class="nav-item nav-link" href="/show_data">Показать данные</a>
+                            {% endif %}
                         </div>
-                        <a class="navbar-brand" href="/user/register">Регистрация</a>
                         <a class="navbar-brand" href="/about">О авторе</a>
+                        {% if user_role == 'admin' %}
+                            <a class="navbar-brand" href="/user/register">Регистрация</a>
+                        {% endif %}
                         {% if "username" in session %}
                             <a class="navbar-brand" href="/logout">{{session['username']}}</a>
+                        {% else %}
+                            <a class="navbar-brand" href="/login">Вход</a>
                         {% endif %}
                     </nav>
             </header>
