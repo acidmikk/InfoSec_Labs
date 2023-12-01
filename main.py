@@ -1,7 +1,7 @@
 import os
 import re
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 from flask_login import LoginManager, login_user, UserMixin, login_required, logout_user, current_user
 from random import randint
 from Crypto.Cipher import DES
@@ -10,6 +10,8 @@ import json
 from hashlib import md5
 import datetime
 from lab_2_hash import md4
+from lab_3_encrypt import GOST28147_89
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret_key'
@@ -225,6 +227,48 @@ def lab_2():
     return render_template('lab_2.html', title='Lab 2')
 
 
+@app.route('/lab_3')
+def lab_3():
+    return render_template('lab_3_enc.html')
+
+
+@app.route('/encrypt', methods=['POST'])
+def encrypt_lab():
+    key = request.form['key']
+    file = request.files['file']
+    # Чтение файла
+    data = file.read()
+
+    # Шифрование данных
+    encrypted_data = gost_encrypt(data, key)
+
+    # Сохранение зашифрованных данных в новый файл
+    encrypted_filename = secure_filename('encrypted_' + file.filename)
+    encrypted_path = os.path.join(app.config['UPLOAD_FOLDER'], encrypted_filename)
+    with open(encrypted_path, 'wb') as encrypted_file:
+        encrypted_file.write(encrypted_data)
+
+    return redirect(url_for('lab_3'))
+
+
+@app.route('/decrypt', methods=['POST'])
+def decrypt_lab():
+    key = request.form['key']
+    file = request.files['file']
+    # Чтение файла
+    data = file.read()
+
+    # Расшифрование данных
+    decrypted_data = gost_decrypt(data, key)
+
+    # Сохранение расшифрованных данных в новый файл
+    decrypted_filename = secure_filename('decrypted_' + file.filename)
+    decrypted_path = os.path.join(app.config['UPLOAD_FOLDER'], decrypted_filename)
+    with open(decrypted_path, 'wb') as decrypted_file:
+        decrypted_file.write(decrypted_data)
+    return redirect(url_for('lab_3'))
+
+
 @app.route('/reset_data')
 @login_required
 def reset_data():
@@ -325,5 +369,12 @@ def change_password(user_id):
         return redirect(request.referrer)
 
 
+@app.route('/download/<filename>')
+def download(filename):
+    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename), as_attachment=True)
+
+
 if __name__ == '__main__':
+    app.config['UPLOAD_FOLDER'] = 'uploads'
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     app.run(debug=True)
