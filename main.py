@@ -107,6 +107,8 @@ class User(UserMixin):
 
 
 cipher = None
+cipher_3 = GOST28147_89()
+
 
 
 # @app.before_first_request
@@ -236,17 +238,16 @@ def lab_3():
 def encrypt_lab():
     key = request.form['key']
     file = request.files['file']
-    # Чтение файла
-    data = file.read()
+    filename = secure_filename(file.filename)
 
     # Шифрование данных
-    encrypted_data = gost_encrypt(data, key)
+    cipher_3.encrypt_file(filename, 'output.txt', cipher_3.password_to_key(key))
 
     # Сохранение зашифрованных данных в новый файл
-    encrypted_filename = secure_filename('encrypted_' + file.filename)
-    encrypted_path = os.path.join(app.config['UPLOAD_FOLDER'], encrypted_filename)
-    with open(encrypted_path, 'wb') as encrypted_file:
-        encrypted_file.write(encrypted_data)
+    # encrypted_filename = secure_filename('encrypted_' + file.filename)
+    # encrypted_path = os.path.join(app.config['UPLOAD_FOLDER'], encrypted_filename)
+    # with open(encrypted_path, 'wb') as encrypted_file:
+    #     encrypted_file.write(encrypted_data)
 
     return redirect(url_for('lab_3'))
 
@@ -254,18 +255,15 @@ def encrypt_lab():
 @app.route('/decrypt', methods=['POST'])
 def decrypt_lab():
     key = request.form['key']
-    file = request.files['file']
-    # Чтение файла
-    data = file.read()
 
     # Расшифрование данных
-    decrypted_data = gost_decrypt(data, key)
+    cipher_3.decrypt_file('output.txt', 'decrypted.txt', cipher_3.password_to_key(key))
 
     # Сохранение расшифрованных данных в новый файл
-    decrypted_filename = secure_filename('decrypted_' + file.filename)
-    decrypted_path = os.path.join(app.config['UPLOAD_FOLDER'], decrypted_filename)
-    with open(decrypted_path, 'wb') as decrypted_file:
-        decrypted_file.write(decrypted_data)
+    # decrypted_filename = secure_filename('decrypted_' + file.filename)
+    # decrypted_path = os.path.join(app.config['UPLOAD_FOLDER'], decrypted_filename)
+    # with open(decrypted_path, 'wb') as decrypted_file:
+    #     decrypted_file.write(decrypted_data)
     return redirect(url_for('lab_3'))
 
 

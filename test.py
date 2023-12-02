@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class GOST28147_89:
     def __init__(self):
         self._mod = 1 << 32
@@ -77,6 +80,15 @@ class GOST28147_89:
         with open(output_file, 'wb') as file:
             file.write(decrypted_data.to_bytes((decrypted_data.bit_length() + 7) // 8, 'big'))
 
+    def password_to_key(self, password):
+        key = [0xFFFFFFFF] * 8  # Инициализировать ключ значением [0xFFFFFFFF, 0xFFFFFFFF, ..., 0xFFFFFFFF]
+
+        # Преобразовать каждый символ пароля в его ASCII-код и применить к ключам
+        for i, char in enumerate(password):
+            key[i % 8] = (key[i % 8] << 8) | ord(char)
+
+        return key
+
 
 if __name__ == '__main__':
     cipher = GOST28147_89()
@@ -84,7 +96,10 @@ if __name__ == '__main__':
     input_file = 'Original_text.txt'  # Путь к вашему входному файлу
     output_file = 'output.txt'  # Путь к файлу для записи результата
 
-    key = [0xFFFFFFFF, 0x12345678, 0x00120477, 0x77AE441F, 0x81C63123, 0x99DEEEEE, 0x09502978, 0x68FA3105]
+    # key = [0xFFFFFFFF, 0x12345678, 0x00120477, 0x77AE441F, 0x81C63123, 0x99DEEEEE, 0x09502978, 0x68FA3105]
+
+    password = "password"  # Замените на введенный пользователем пароль
+    key = cipher.password_to_key(password)
 
     # Зашифровать файл
     cipher.encrypt_file(input_file, output_file, key)

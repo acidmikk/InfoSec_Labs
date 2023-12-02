@@ -76,3 +76,12 @@ class GOST28147_89:
 
         with open(output_file, 'wb') as file:
             file.write(decrypted_data.to_bytes((decrypted_data.bit_length() + 7) // 8, 'big'))
+
+    def password_to_key(self, password):
+        key = [0xFFFFFFFF] * 8  # Инициализировать ключ значением [0xFFFFFFFF, 0xFFFFFFFF, ..., 0xFFFFFFFF]
+
+        # Преобразовать каждый символ пароля в его ASCII-код и применить к ключам
+        for i, char in enumerate(password):
+            key[i % 8] = (key[i % 8] << 8) | ord(char)
+
+        return key

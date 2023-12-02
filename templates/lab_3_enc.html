@@ -5,7 +5,7 @@
     <h3>Шифрование:</h3>
     <form action="/encrypt" method="post" enctype="multipart/form-data">
         <label for="key">Enter key:</label>
-        <input type="key" name="key" required>
+        <input type="key" name="key" minlength="8" maxlength="8" required>
         <br>
         <label for="file">Choose File:</label>
         <input type="file" name="file" required>
@@ -15,10 +15,7 @@
 <br><br><h3>Дешифрование:</h3>
     <form action="/decrypt" method="post" enctype="multipart/form-data">
         <label for="key">Enter key:</label>
-        <input type="key" name="key" required>
-        <br>
-        <label for="file">Choose File:</label>
-        <input type="file" name="file" required>
+        <input type="key" name="key" minlength="8" maxlength="8" required>
         <br>
         <button type="submit">Decrypt</button>
     </form>
