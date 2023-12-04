@@ -1,7 +1,6 @@
 class GOST28147_89:
     def __init__(self):
         self._mod = 1 << 32
-        # Central Bank of Russian Federation uses this S-boxes
         self._s_box = (
                                 (4, 10, 9, 2, 13, 8, 0, 14, 6, 11, 1, 12, 7, 15, 5, 3),
                                 (14, 11, 4, 12, 6, 13, 15, 10, 2, 3, 8, 1, 0, 7, 5, 9),

@@ -9,7 +9,7 @@ from Crypto.Random import get_random_bytes
 import json
 from hashlib import md5
 import datetime
-from lab_2_hash import md4
+from lab_2_hash import MD4
 from lab_3_encrypt import GOST28147_89
 from werkzeug.utils import secure_filename
 
@@ -94,7 +94,7 @@ class User(UserMixin):
 
     def is_password_expired(self):
         if self.password_expiration_months:
-            expiration_date = self.created_at + datetime.timedelta(days=30 * self.password_expiration_months)
+            expiration_date = self.created_at + datetime.timedelta(days=30 * int(self.password_expiration_months))
             return datetime.datetime.now() > expiration_date
         return False
 
@@ -197,7 +197,7 @@ def index():
         initial_data = {'1': {
             'id': 1,
             'username': 'admin',
-            'password_hash': md5('qwerty'.encode('utf-8')).hexdigest(),
+            'password_hash': md5('q'.encode('utf-8')).hexdigest(),
             'role': 'admin',
             'min_password_length': 0,
             'password_expiration_months': 1,
@@ -223,9 +223,13 @@ def about():
 @app.route('/lab_2', methods=['GET', 'POST'])
 def lab_2():
     if request.method == 'POST':
-        message = request.form['message']
-        hashed_message = md4(message)
-        return render_template('lab_2.html', title='Lab 2', message=message, hashed_message=hashed_message)
+        file = request.files['file']
+        filename = secure_filename(file.filename)
+        with open(filename, 'r') as file:
+            message = file.read()
+        md4 = MD4()
+        md4.update(message)
+        return render_template('lab_2.html', title='Lab 2', message=message, hashed_message=md4.hexdigest())
     return render_template('lab_2.html', title='Lab 2')
 
 
@@ -348,14 +352,18 @@ def change_password(user_id):
     confirm_password = request.form['confirm_password']
     if user.verify_password(old_password):
         if new_password == confirm_password:
-            if user.is_password_length_valid(new_password):
-                user.change_password(new_password)
-                flash('Пароль изменен успешно', 'success')
-                if session['role'] != 'admin':
-                    logout_user()
-                    return redirect(url_for('login'))
+            if len(new_password) >= int(user.min_password_length):
+                if check_password(new_password):
+                    user.change_password(new_password)
+                    flash('Пароль изменен успешно', 'success')
+                    if session['role'] != 'admin':
+                        logout_user()
+                        return redirect(url_for('login'))
+                    else:
+                        return redirect(url_for('dashboard'))
                 else:
-                    return redirect(url_for('dashboard'))
+                    flash(f'Пароль не удовлетворяет условиям', 'danger')
+                    return redirect(request.referrer)
             else:
                 flash(f'Пароль не удовлетворяет условиям длины: {user.min_password_length}', 'danger')
                 return redirect(request.referrer)
